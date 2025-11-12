@@ -372,8 +372,75 @@ class LLaDAEvalHarness(LM):
             print('=' * 20, end='\n\n')
             
         if self.show_speed:
-            print(f"Total time taken: {run_time} seconds")
-            print(f"Total NFE is {num_nfe}")
+            # Aggregate metrics across all ranks
+            if self.accelerator is not None:
+                num_tokens_tensor = torch.tensor(num_tokens, device=self.device)
+                num_nfe_tensor = torch.tensor(num_nfe, device=self.device)
+                run_time_tensor = torch.tensor(run_time, device=self.device)
+                
+                # Gather from all processes
+                num_tokens_gathered = self.accelerator.gather(num_tokens_tensor)
+                num_nfe_gathered = self.accelerator.gather(num_nfe_tensor)
+                run_time_gathered = self.accelerator.gather(run_time_tensor)
+                
+                if self.rank == 0:
+                    total_tokens = num_tokens_gathered.sum().item()
+                    total_nfe = num_nfe_gathered.sum().item()
+                    total_time = run_time_gathered.max().item()  # Max time across all ranks
+                    
+                    tokens_per_sec = total_tokens / total_time if total_time > 0 else 0
+                    avg_nfe_per_token = total_nfe / total_tokens if total_tokens > 0 else 0
+                    
+                    print("\n" + "=" * 80)
+                    print(f"SPEED METRICS (Aggregated across {self.world_size} ranks):")
+                    print(f"  Total time taken: {total_time:.2f} seconds")
+                    print(f"  Total tokens generated: {int(total_tokens)}")
+                    print(f"  Total NFE: {int(total_nfe)}")
+                    print(f"  Throughput: {tokens_per_sec:.2f} tokens/sec")
+                    print(f"  Average NFE per token: {avg_nfe_per_token:.2f}")
+                    print("=" * 80 + "\n")
+                    
+                    # Save metrics to file
+                    if self.save_dir is not None:
+                        metrics_path = os.path.join(self.save_dir, 'speed_metrics.json')
+                        metrics = {
+                            'total_time_seconds': total_time,
+                            'total_tokens': int(total_tokens),
+                            'total_nfe': int(total_nfe),
+                            'tokens_per_second': tokens_per_sec,
+                            'avg_nfe_per_token': avg_nfe_per_token,
+                            'num_ranks': self.world_size
+                        }
+                        with open(metrics_path, 'w') as f:
+                            json.dump(metrics, f, indent=2)
+                        print(f"Speed metrics saved to: {metrics_path}")
+            else:
+                tokens_per_sec = num_tokens / run_time if run_time > 0 else 0
+                avg_nfe_per_token = num_nfe / num_tokens if num_tokens > 0 else 0
+                
+                print("\n" + "=" * 80)
+                print(f"SPEED METRICS:")
+                print(f"  Total time taken: {run_time:.2f} seconds")
+                print(f"  Total tokens generated: {int(num_tokens)}")
+                print(f"  Total NFE: {int(num_nfe)}")
+                print(f"  Throughput: {tokens_per_sec:.2f} tokens/sec")
+                print(f"  Average NFE per token: {avg_nfe_per_token:.2f}")
+                print("=" * 80 + "\n")
+                
+                # Save metrics to file
+                if self.save_dir is not None:
+                    metrics_path = os.path.join(self.save_dir, 'speed_metrics.json')
+                    metrics = {
+                        'total_time_seconds': run_time,
+                        'total_tokens': int(num_tokens),
+                        'total_nfe': int(num_nfe),
+                        'tokens_per_second': tokens_per_sec,
+                        'avg_nfe_per_token': avg_nfe_per_token
+                    }
+                    with open(metrics_path, 'w') as f:
+                        json.dump(metrics, f, indent=2)
+                    print(f"Speed metrics saved to: {metrics_path}")
+        
         return output
 
 
