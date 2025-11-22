@@ -86,55 +86,6 @@ def get_transfer_index(logits, temperature, remasking, mask_index, x, num_transf
     return x0, transfer_index
 
 
-@ torch.no_grad()
-def generate(model, prompt, steps=128, gen_length=128, block_length=128, temperature=0.,
-             remasking='low_confidence', mask_id=126336, threshold=None):
-    '''
-    Args:
-        model: Mask predictor.
-        prompt: A tensor of shape (1, L).
-        steps: Sampling steps, less than or equal to gen_length.
-        gen_length: Generated answer length.
-        block_length: Block length, less than or equal to gen_length. If less than gen_length, it means using semi_autoregressive remasking.
-        temperature: Categorical distribution sampling temperature.
-        cfg_scale: Unsupervised classifier-free guidance scale.
-        remasking: Remasking strategy. 'low_confidence' or 'random'.
-        mask_id: The toke id of [MASK] is 126336.
-    '''
-    x = torch.full((1, prompt.shape[1] + gen_length), mask_id, dtype=torch.long).to(model.device)
-    x[:, :prompt.shape[1]] = prompt.clone()
-
-    assert gen_length % block_length == 0
-    num_blocks = gen_length // block_length
-
-    assert steps % num_blocks == 0
-    steps = steps // num_blocks
-
-    nfe = 0
-    for num_block in range(num_blocks):
-        block_mask_index = (x[:, prompt.shape[1] + num_block * block_length: prompt.shape[1] + (num_block + 1) * block_length] == mask_id)
-        num_transfer_tokens = get_num_transfer_tokens(block_mask_index, steps)
-        i = 0
-        while True:
-            nfe += 1
-            mask_index = (x == mask_id)
-            logits = model(x).logits
-            mask_index[:, prompt.shape[1] + (num_block + 1) * block_length:] = 0
-
-            if threshold is not None:
-                x0, transfer_index = get_transfer_index_entropy(logits, temperature, remasking, mask_index, x, num_transfer_tokens[:, i] if threshold is None else None, threshold)
-            else:
-                x0, transfer_index = get_transfer_index(logits, temperature, remasking, mask_index, x, num_transfer_tokens[:, i] if threshold is None else None, threshold)
-
-            x[transfer_index] = x0[transfer_index]
-            i += 1
-            if (x[:, prompt.shape[1] + num_block * block_length: prompt.shape[1] + (num_block + 1) * block_length] == mask_id).sum() == 0:
-                break
-        # if x[:, prompt.shape[1] + (num_block + 1) * block_length-1] == 126081:
-        #     x[:, prompt.shape[1] + (num_block + 1) * block_length:] = 126081
-        #     break
-    return x, nfe
-
 def get_transfer_index_entropy(logits, temperature, remasking, mask_index, x, num_transfer_tokens, entropy_threshold=None):
     logits_with_noise = add_gumbel_noise(logits, temperature=temperature)
     x0 = torch.argmax(logits_with_noise, dim=-1)  # b, l
@@ -178,9 +129,38 @@ def get_transfer_index_entropy(logits, temperature, remasking, mask_index, x, nu
     return x0, transfer_index
 
 
+def should_early_exit(current_step, max_steps, answer_gap, thresholds=None):
+    """Phase-aware early exit strategy."""
+    if answer_gap is None:
+        return False
+    
+    # Use default or provided thresholds
+    if thresholds is None:
+        thresholds = {'early': 7.5, 'mid': 5.0, 'late': 2.5}
+    
+    progress = current_step / max_steps
+    
+    # Phase-based thresholds
+    if progress < 0.33:  # Early phase
+        return answer_gap >= thresholds.get('early', 7.5)
+    elif progress < 0.67:  # Mid phase  
+        return answer_gap >= thresholds.get('mid', 5.0)
+    else:  # Late phase
+        return answer_gap >= thresholds.get('late', 2.5)
+
+
 @ torch.no_grad()
-def generate_with_prefix_cache(model, prompt, steps=128, gen_length=128, block_length=128, temperature=0.,
-             remasking='low_confidence', mask_id=126336, threshold=None):
+def generate(
+    model,
+    prompt,
+    steps=128,
+    gen_length=128,
+    block_length=128,
+    temperature=0.,
+    remasking='low_confidence',
+    mask_id=126336,
+    threshold=None
+):
     '''
     Args:
         model: Mask predictor.
@@ -203,132 +183,148 @@ def generate_with_prefix_cache(model, prompt, steps=128, gen_length=128, block_l
     steps = steps // num_blocks
 
     nfe = 0
-            
     for num_block in range(num_blocks):
-        current_block_start = prompt.shape[1] + num_block * block_length
-        current_block_end = current_block_start + block_length
-
-        block_mask_index = (x[:, current_block_start:current_block_end] == mask_id)
+        block_start = prompt.shape[1] + num_block * block_length
+        block_end = prompt.shape[1] + (num_block + 1) * block_length
+        block_mask_index = (x[:, block_start:block_end] == mask_id)
         num_transfer_tokens = get_num_transfer_tokens(block_mask_index, steps)
 
-        output = model(x, use_cache=True)
-        past_key_values = output.past_key_values
+        i = 0
 
-        mask_index = (x == mask_id)
-        mask_index[:, current_block_end:] = 0
-        x0, transfer_index = get_transfer_index_entropy(output.logits, temperature, remasking, mask_index, x, num_transfer_tokens[:, 0] if threshold is None else None, threshold)
-        x[transfer_index] = x0[transfer_index]
-
-        new_past_key_values = []
-        for i in range(len(past_key_values)):
-            new_past_key_values.append(())
-            for j in range(len(past_key_values[i])):
-                new_past_key_values[i] += (past_key_values[i][j][:, :, :current_block_start],)
-        
-        past_key_values = new_past_key_values
-        nfe += 1
-        
-        i = 1
         while True:
             nfe += 1
-            mask_index = (x[:, current_block_start:] == mask_id)
-            mask_index[:, block_length:] = 0
+            mask_index = (x == mask_id)
 
-            logits = model(x[:, current_block_start:], past_key_values=past_key_values, use_cache=True).logits
+            logits = model(x).logits
+            mask_index[:, block_end:] = 0
 
-            logits_with_noise = add_gumbel_noise(logits, temperature=temperature)
-            x0 = torch.argmax(logits_with_noise, dim=-1) # b, l
+            if threshold is not None:
+                x0, transfer_index = get_transfer_index_entropy(logits, temperature, remasking, mask_index, x, num_transfer_tokens[:, i] if threshold is None else None, threshold)
+            else:
+                x0, transfer_index = get_transfer_index(logits, temperature, remasking, mask_index, x, num_transfer_tokens[:, i] if threshold is None else None, threshold)
 
-            x0, transfer_index = get_transfer_index_entropy(logits, temperature, remasking, mask_index, 
-                                            x[:, current_block_start:], num_transfer_tokens[:, i] if threshold is None else None, threshold)
-            x[:, current_block_start:][transfer_index] = x0[transfer_index]
-            if (x[:, current_block_start:current_block_end] == mask_id).sum() == 0:
-                break
+            x[transfer_index] = x0[transfer_index]
             i += 1
-
-
+            if (x[:, prompt.shape[1] + num_block * block_length: prompt.shape[1] + (num_block + 1) * block_length] == mask_id).sum() == 0:
+                break
+        # if x[:, prompt.shape[1] + (num_block + 1) * block_length-1] == 126081:
+        #     x[:, prompt.shape[1] + (num_block + 1) * block_length:] = 126081
+        #     break
     return x, nfe
 
 
-@ torch.no_grad()
-def generate_with_dual_cache(model, prompt, steps=128, gen_length=128, block_length=128, temperature=0.,
-            remasking='low_confidence', mask_id=126336, threshold=None):
-    '''
-    Args:
-        model: Mask predictor.
-        prompt: A tensor of shape (1, L).
-        steps: Sampling steps, less than or equal to gen_length.
-        gen_length: Generated answer length.
-        block_length: Block length, less than or equal to gen_length. If less than gen_length, it means using semi_autoregressive remasking.
-        temperature: Categorical distribution sampling temperature.
-        cfg_scale: Unsupervised classifier-free guidance scale.
-        remasking: Remasking strategy. 'low_confidence' or 'random'.
-        mask_id: The toke id of [MASK] is 126336.
-    '''
+@torch.no_grad()
+def generate_prophet(
+    model,
+    prompt,
+    steps=128,
+    gen_length=128,
+    block_length=128,
+    temperature=0.,
+    remasking='low_confidence',
+    mask_id=126336,
+    threshold=None,
+    analyze_gap=False,
+    answer_start_pos=None,
+    early_exit_thresholds=None
+):
+    '''LLaDA generation with Prophet early exit mechanism based on logits gap.'''
+    
+    # Initialize
+    early_exit_triggered = False
+    exit_decision_step = None
+    
     x = torch.full((1, prompt.shape[1] + gen_length), mask_id, dtype=torch.long).to(model.device)
     x[:, :prompt.shape[1]] = prompt.clone()
-
+        
     assert gen_length % block_length == 0
     num_blocks = gen_length // block_length
-
     assert steps % num_blocks == 0
-    steps = steps // num_blocks
-
-    nfe = 0  
-    for num_block in range(num_blocks):
-        current_block_start = prompt.shape[1] + num_block * block_length
-        current_block_end = current_block_start + block_length
-
-        block_mask_index = (x[:, current_block_start:current_block_end] == mask_id)
-        num_transfer_tokens = get_num_transfer_tokens(block_mask_index, steps)
-
-        # cache init and update
-        output = model(x, use_cache=True)
-        past_key_values = output.past_key_values
-        mask_index = (x == mask_id)
-        mask_index[:, current_block_end:] = 0
-        x0, transfer_index = get_transfer_index_entropy(output.logits, temperature, remasking, mask_index, x, num_transfer_tokens[:, 0] if threshold is None else None, threshold)
-        x[transfer_index] = x0[transfer_index]
-        nfe += 1
-
-        i = 1
-        replace_position = torch.zeros_like(x, dtype=torch.bool)
-        replace_position[:, current_block_start:current_block_end] = 1
-        while True:
-            nfe += 1
-            mask_index = (x[:, current_block_start:current_block_end] == mask_id)
-            # cache position is the position between current_block_start and current_block_end
-            logits = model(x[:, current_block_start:current_block_end], past_key_values=past_key_values, use_cache=True, replace_position=replace_position).logits
-
-            x0, transfer_index = get_transfer_index_entropy(logits, temperature, remasking, mask_index, 
-                                            x[:, current_block_start:current_block_end], num_transfer_tokens[:, i] if threshold is None else None, threshold)
-            x[:, current_block_start:current_block_end][transfer_index] = x0[transfer_index]
-            if (x[:, current_block_start:current_block_end] == mask_id).sum() == 0:
-                break
-            i += 1
-
-    return x, nfe
-
-def main():
-    device = 'cuda'
-
-    model = LLaDAModelLM.from_pretrained('Zigeng/dParallel-LLaDA-8B-instruct', trust_remote_code=True, torch_dtype=torch.bfloat16).to(device).eval()
-    tokenizer = AutoTokenizer.from_pretrained('Zigeng/dParallel-LLaDA-8B-instruct', trust_remote_code=True)
-
-    prompt = "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May? Please reason step by step, and put your final answer within \\boxed{}."
-
-    # Add special tokens for the Instruct model. The Base model does not require the following two lines.
-    m = [{"role": "user", "content": prompt}, ]
-    prompt = tokenizer.apply_chat_template(m, add_generation_prompt=True, tokenize=False)
-
-    input_ids = tokenizer(prompt)['input_ids']
-    input_ids = torch.tensor(input_ids).to(device).unsqueeze(0)
-
-    out = generate(model, input_ids, steps=256, gen_length=256, block_length=32, temperature=0., threshold=0.5,remasking='low_confidence')
-    print(tokenizer.batch_decode(out[0][:, input_ids.shape[1]:], skip_special_tokens=True)[0])
-    print("Decoding Steps:",out[1])
+    steps_per_block = steps // num_blocks
     
-
-
-if __name__ == '__main__':
-    main()
+    global_step = 0
+    max_steps = steps
+    
+    for num_block in range(num_blocks):
+        block_start = prompt.shape[1] + num_block * block_length
+        block_end = prompt.shape[1] + (num_block + 1) * block_length
+        block_mask_index = (x[:, block_start:block_end] == mask_id)
+        num_transfer_tokens = get_num_transfer_tokens(block_mask_index, steps_per_block)
+        
+        for i in range(steps_per_block):
+            global_step += 1
+            mask_index = (x == mask_id)
+            
+            logits = model(x).logits
+            
+            # Early exit check based on logits gap
+            if analyze_gap and answer_start_pos is not None:
+                # Calculate answer region
+                answer_length = 5
+                answer_positions = list(range(answer_start_pos, min(prompt.shape[1] + gen_length, answer_start_pos + answer_length)))
+                
+                # Analyze gap in answer region
+                gen_start = prompt.shape[1]
+                gen_logits = logits[:, gen_start:, :]
+                
+                answer_gaps = []
+                for pos in answer_positions:
+                    if pos >= gen_start and pos < logits.shape[1]:
+                        rel_pos = pos - gen_start
+                        if rel_pos < gen_logits.shape[1]:
+                            # Get top-2 logits
+                            top2_vals, _ = torch.topk(gen_logits[:, rel_pos, :], k=2, dim=-1)
+                            gap = (top2_vals[0, 0] - top2_vals[0, 1]).item()
+                            answer_gaps.append(gap)
+                
+                # Check early exit condition
+                if answer_gaps and not early_exit_triggered:
+                    avg_answer_gap = sum(answer_gaps) / len(answer_gaps)
+                    
+                    if should_early_exit(global_step, max_steps, avg_answer_gap, early_exit_thresholds):
+                        print(f"Early exit at step {global_step}/{max_steps} with gap={avg_answer_gap:.3f}")
+                        exit_decision_step = global_step
+                        early_exit_triggered = True
+                        
+                        # Fill remaining masks
+                        logits_with_noise = add_gumbel_noise(logits, temperature=temperature)
+                        x0 = torch.argmax(logits_with_noise, dim=-1)
+                        remaining_mask = (x == mask_id)
+                        x[remaining_mask] = x0[remaining_mask]
+                        break
+            
+            # Mask out tokens beyond current block
+            mask_index[:, block_end:] = False
+            
+            if threshold is not None:
+                x0, transfer_index = get_transfer_index_entropy(
+                    logits, temperature, remasking, mask_index, x, 
+                    num_transfer_tokens[:, i], threshold
+                )
+            else:
+                x0, transfer_index = get_transfer_index(
+                    logits, temperature, remasking, mask_index, x, 
+                    num_transfer_tokens[:, i], threshold
+                )
+                        
+            x[transfer_index] = x0[transfer_index]
+            if (x[:, prompt.shape[1] + num_block * block_length: prompt.shape[1] + (num_block + 1) * block_length] == mask_id).sum() == 0:
+                break
+        
+        # Break outer loop if early exit triggered
+        if early_exit_triggered:
+            break
+    
+    # Return results
+    if analyze_gap:
+        gap_data = {
+            'exit_info': {
+                'early_exit_triggered': early_exit_triggered,
+                'exit_decision_step': exit_decision_step,
+                'total_steps': max_steps,
+                'actual_steps': exit_decision_step if early_exit_triggered else max_steps
+            }
+        }
+        return x, global_step, gap_data
+    
+    return x, global_step

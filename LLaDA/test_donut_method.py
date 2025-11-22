@@ -1,8 +1,9 @@
 # cd LLaDA
 from transformers import AutoTokenizer
 from model.modeling_llada import LLaDAModelLM
-from generate_earlyexit import generate as generate_early
-from generate import generate as generate_normal
+# from generate_prophet import generate as generate_early
+# from generate_plain import generate as generate_normal
+from generate import generate_prophet, generate
 import torch
 
 def _parse_constraints(text: str, tokenizer) -> dict[int, int]:
@@ -47,17 +48,18 @@ answer_start_pos = input_ids.shape[1] + answer_start
 
 print("answer start pos", answer_start_pos)
 
-out, nfe_early, gap_data = generate_early(model, input_ids, temperature=0., steps=256, gen_length=256, block_length=32, analyze_gap=True, answer_start_pos=answer_start_pos, early_exit_thresholds={'early': 7.5, 'mid': 5.0, 'late': 2.5})
+out, nfe_early, gap_data = generate_prophet(model, input_ids, steps=256, gen_length=256, block_length=32, temperature=0., threshold=0.5,remasking='low_confidence', analyze_gap=True, answer_start_pos=answer_start_pos, early_exit_thresholds={'early': 9.0, 'mid': 7.0, 'late': 5.0})
 
-
-generated_text = tokenizer.decode(out[0, input_ids.shape[1]:], skip_special_tokens=True)
+generated_text = tokenizer.batch_decode(out[:, input_ids.shape[1]:], skip_special_tokens=True)[0]
 print(f"Generated: {generated_text}")
 print(f"NFE: {nfe_early}")
 print(f"Early exit: {gap_data['exit_info']['early_exit_triggered']} at step {gap_data['exit_info']['exit_decision_step']}")
 
-# -- normal
-out = generate_normal(model, input_ids, steps=256, gen_length=256, block_length=32, temperature=0., threshold=0.5,remasking='low_confidence')
+print("\n--------------------------------\n")
 
-print("Response:",tokenizer.batch_decode(out[0][:, input_ids.shape[1]:], skip_special_tokens=True)[0])
-print("NFE:",out[1])
+# -- normal
+out, nfe = generate(model, input_ids, steps=256, gen_length=256, block_length=32, temperature=0., threshold=0.5,remasking='low_confidence')
+
+print("Response:",tokenizer.batch_decode(out[:, input_ids.shape[1]:], skip_special_tokens=True)[0])
+print("NFE:",nfe)
 # print(f"Early exit: {gap_data['exit_info']['early_exit_triggered']} at step {gap_data['exit_info']['exit_decision_step']}")

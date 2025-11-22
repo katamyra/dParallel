@@ -4,8 +4,6 @@ import torch.nn.functional as F
 import time
 from transformers import AutoTokenizer, AutoModel
 
-print("Generating with early exit...")
-
 
 def should_early_exit(current_step, max_steps, answer_gap, thresholds=None):
     """Phase-aware early exit strategy."""
@@ -61,7 +59,6 @@ def generate(model, prompt, steps=128, gen_length=128, block_length=128, tempera
     early_exit_triggered = False
     exit_decision_step = None
     inference_start_time = time.time() if measure_time else None
-    nfe = 0  # Number of Function Evaluations
     
     x = torch.full((1, prompt.shape[1] + gen_length), mask_id, dtype=torch.long).to(model.device)
     x[:, :prompt.shape[1]] = prompt.clone()
@@ -101,10 +98,8 @@ def generate(model, prompt, steps=128, gen_length=128, block_length=128, tempera
                 logits = model(x_).logits
                 logits, un_logits = torch.chunk(logits, 2, dim=0)
                 logits = un_logits + (cfg_scale + 1) * (logits - un_logits)
-                nfe += 1  # Count model forward pass
             else:
                 logits = model(x).logits
-                nfe += 1  # Count model forward pass
             
             logits_with_noise = add_gumbel_noise(logits, temperature=temperature)
             x0 = torch.argmax(logits_with_noise, dim=-1)
@@ -191,9 +186,9 @@ def generate(model, prompt, steps=128, gen_length=128, block_length=128, tempera
         }
         if measure_time:
             gap_data['exit_info']['inference_time'] = time.time() - inference_start_time
-        return x, nfe, gap_data
+        return x, global_step, gap_data
     
-    return x, nfe
+    return x, global_step
 
 
 def main():
@@ -210,7 +205,7 @@ def main():
     input_ids = torch.tensor(input_ids).to(device).unsqueeze(0)
     
     # Test with early exit
-    out, nfe, gap_data = generate(
+    out, gap_data = generate(
         model, input_ids, 
         steps=128, 
         gen_length=128, 
@@ -225,7 +220,6 @@ def main():
     
     generated_text = tokenizer.batch_decode(out[:, input_ids.shape[1]:], skip_special_tokens=True)[0]
     print(f"Generated: {generated_text}")
-    print(f"NFE: {nfe}")
     print(f"Exit info: {gap_data['exit_info']}")
 
 
