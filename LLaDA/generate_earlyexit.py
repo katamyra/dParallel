@@ -50,11 +50,46 @@ def get_num_transfer_tokens(mask_index, steps):
     return num_transfer_tokens
 
 
+def get_transfer_index_entropy(logits, temperature, remasking, mask_index, x, num_transfer_tokens, entropy_threshold=None):
+    '''Select tokens to transfer based on entropy (confidence).'''
+    logits_with_noise = add_gumbel_noise(logits, temperature=temperature)
+    x0 = torch.argmax(logits_with_noise, dim=-1)
+    
+    # Calculate entropy
+    p = F.softmax(logits.to(torch.float64), dim=-1)
+    
+    if remasking == 'low_confidence':
+        entropy = -torch.sum(p * torch.log(p + 1e-12), dim=-1)
+    elif remasking == 'random':
+        entropy = torch.rand((x0.shape[0], x0.shape[1]), device=x0.device)
+    else:
+        raise NotImplementedError(remasking)
+    
+    x0 = torch.where(mask_index, x0, x)
+    entropy_for_selection = torch.where(mask_index, entropy, torch.inf)
+    
+    transfer_index = torch.zeros_like(x0, dtype=torch.bool, device=x0.device)
+    
+    if entropy_threshold is not None:
+        num_transfer_tokens = mask_index.sum(dim=1, keepdim=True)
+    
+    for j in range(entropy_for_selection.shape[0]):
+        _, select_index = torch.topk(entropy_for_selection[j], k=num_transfer_tokens[j], largest=False)
+        transfer_index[j, select_index] = True
+        
+        if entropy_threshold is not None:
+            for k in range(1, num_transfer_tokens[j]):
+                if entropy[j, select_index[k]] > entropy_threshold:
+                    transfer_index[j, select_index[k]] = False
+    
+    return x0, transfer_index
+
+
 @torch.no_grad()
 def generate(model, prompt, steps=128, gen_length=128, block_length=128, temperature=0.,
              cfg_scale=0., remasking='low_confidence', mask_id=126336, constraints=None,
              analyze_gap=False, tokenizer=None, answer_start_pos=None, 
-             early_exit_thresholds=None, measure_time=False, **_):
+             early_exit_thresholds=None, measure_time=False, threshold=None, **_):
     '''LLaDA generation with Prophet early exit mechanism based on logits gap.'''
     
     # Initialize
@@ -89,7 +124,8 @@ def generate(model, prompt, steps=128, gen_length=128, block_length=128, tempera
         block_mask_index = (x[:, block_start:block_end] == mask_id)
         num_transfer_tokens = get_num_transfer_tokens(block_mask_index, steps_per_block)
         
-        for i in range(steps_per_block):
+        i = 0
+        while True:
             global_step += 1
             mask_index = (x == mask_id)
             
@@ -124,47 +160,60 @@ def generate(model, prompt, steps=128, gen_length=128, block_length=128, tempera
                 answer_length = 5
                 answer_positions = list(range(answer_start_pos, min(prompt.shape[1] + gen_length, answer_start_pos + answer_length)))
                 
-                # Analyze gap in answer region
-                gen_start = prompt.shape[1]
-                gen_logits = logits[:, gen_start:, :]
+                # Only check if answer positions are actually unmasked
+                answer_unmasked = all(x[0, pos] != mask_id for pos in answer_positions if pos < x.shape[1])
                 
-                answer_gaps = []
-                for pos in answer_positions:
-                    if pos >= gen_start and pos < logits.shape[1]:
-                        rel_pos = pos - gen_start
-                        if rel_pos < gen_logits.shape[1]:
-                            # Get top-2 logits
-                            top2_vals, _ = torch.topk(gen_logits[:, rel_pos, :], k=2, dim=-1)
-                            gap = (top2_vals[0, 0] - top2_vals[0, 1]).item()
-                            answer_gaps.append(gap)
-                
-                # Check early exit condition
-                if answer_gaps and not early_exit_triggered:
-                    avg_answer_gap = sum(answer_gaps) / len(answer_gaps)
+                if answer_unmasked:
+                    # Analyze gap in answer region
+                    gen_start = prompt.shape[1]
+                    gen_logits = logits[:, gen_start:, :]
                     
-                    if should_early_exit(global_step, max_steps, avg_answer_gap, early_exit_thresholds):
-                        print(f"Early exit at step {global_step}/{max_steps} with gap={avg_answer_gap:.3f}")
-                        exit_decision_step = global_step
-                        early_exit_triggered = True
+                    answer_gaps = []
+                    for pos in answer_positions:
+                        if pos >= gen_start and pos < logits.shape[1]:
+                            rel_pos = pos - gen_start
+                            if rel_pos < gen_logits.shape[1]:
+                                # Get top-2 logits
+                                top2_vals, _ = torch.topk(gen_logits[:, rel_pos, :], k=2, dim=-1)
+                                gap = (top2_vals[0, 0] - top2_vals[0, 1]).item()
+                                answer_gaps.append(gap)
+                    
+                    # Check early exit condition
+                    if answer_gaps and not early_exit_triggered:
+                        avg_answer_gap = sum(answer_gaps) / len(answer_gaps)
                         
-                        # Fill remaining masks
-                        remaining_mask = (x == mask_id)
-                        x[remaining_mask] = x0[remaining_mask]
-                        break
+                        if should_early_exit(global_step, max_steps, avg_answer_gap, early_exit_thresholds):
+                            print(f"Early exit at step {global_step}/{max_steps} with gap={avg_answer_gap:.3f}")
+                            exit_decision_step = global_step
+                            early_exit_triggered = True
+                            
+                            # Fill remaining masks
+                            remaining_mask = (x == mask_id)
+                            x[remaining_mask] = x0[remaining_mask]
+                            break
+            
             
             # Mask out tokens beyond current block
-            x0_p[:, block_end:] = -np.inf
+            mask_index[:, block_end:] = 0
             
-            x0 = torch.where(mask_index, x0, x)
-            confidence = torch.where(mask_index, x0_p, -np.inf)
-            
-            # Transfer tokens
-            transfer_index = torch.zeros_like(x0, dtype=torch.bool, device=x0.device)
-            for j in range(confidence.shape[0]):
-                k = int(num_transfer_tokens[j, i].item())
-                if k > 0:
-                    _, select_index = torch.topk(confidence[j], k=k)
-                    transfer_index[j, select_index] = True
+            # Transfer tokens - use entropy-based selection if threshold provided
+            if threshold is not None:
+                x0, transfer_index = get_transfer_index_entropy(
+                    logits, temperature, remasking, mask_index, x, 
+                    num_transfer_tokens[:, i] if threshold is None else None, 
+                    threshold
+                )
+            else:
+                x0_p[:, block_end:] = -np.inf
+                x0 = torch.where(mask_index, x0, x)
+                confidence = torch.where(mask_index, x0_p, -np.inf)
+                
+                transfer_index = torch.zeros_like(x0, dtype=torch.bool, device=x0.device)
+                for j in range(confidence.shape[0]):
+                    k = int(num_transfer_tokens[j, i].item())
+                    if k > 0:
+                        _, select_index = torch.topk(confidence[j], k=k)
+                        transfer_index[j, select_index] = True
             
             x[transfer_index] = x0[transfer_index]
             
@@ -174,6 +223,12 @@ def generate(model, prompt, steps=128, gen_length=128, block_length=128, tempera
                     absolute_pos = prompt.shape[1] + pos
                     if absolute_pos < x.shape[1]:
                         x[:, absolute_pos] = token_id
+            
+            i += 1
+            
+            # Adaptive stopping: exit if current block is complete
+            if (x[:, block_start:block_end] == mask_id).sum() == 0:
+                break
         
         # Break outer loop if early exit triggered
         if early_exit_triggered:
@@ -191,9 +246,9 @@ def generate(model, prompt, steps=128, gen_length=128, block_length=128, tempera
         }
         if measure_time:
             gap_data['exit_info']['inference_time'] = time.time() - inference_start_time
-        return x, nfe, gap_data
+        return x, global_step, gap_data
     
-    return x, nfe
+    return x, global_step
 
 
 def main():

@@ -31,7 +31,7 @@ device = 'cuda'
 model = LLaDAModelLM.from_pretrained('Zigeng/dParallel-LLaDA-8B-instruct', trust_remote_code=True, torch_dtype=torch.bfloat16).to(device).eval()
 tokenizer = AutoTokenizer.from_pretrained('Zigeng/dParallel-LLaDA-8B-instruct', trust_remote_code=True)
 
-prompt = "Weng earns $12 an hour for babysitting. Yesterday, she just did 50 minutes of babysitting. How much did she earn?"
+prompt = "James writes a 3-page letter to 2 different friends twice a week. How many pages does he write a year?"
 
 m = [{"role": "user", "content": prompt}, ]
 prompt = tokenizer.apply_chat_template(m, add_generation_prompt=True, tokenize=False)
@@ -47,7 +47,7 @@ answer_start_pos = input_ids.shape[1] + answer_start
 
 print("answer start pos", answer_start_pos)
 
-out, nfe_early, gap_data = generate_early(model, input_ids, temperature=0., steps=256, gen_length=256, block_length=32, analyze_gap=True, answer_start_pos=answer_start_pos, early_exit_thresholds={'early': 7.5, 'mid': 5.0, 'late': 2.5})
+out, nfe_early, gap_data = generate_early(model, input_ids, temperature=0., steps=256, gen_length=256, block_length=32, analyze_gap=True, answer_start_pos=answer_start_pos, early_exit_thresholds={'early': 7.5, 'mid': 5.0, 'late': 2.5}, threshold=0.5, remasking='low_confidence')
 
 
 generated_text = tokenizer.decode(out[0, input_ids.shape[1]:], skip_special_tokens=True)
