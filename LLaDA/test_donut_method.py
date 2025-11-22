@@ -28,10 +28,10 @@ def _parse_constraints(text: str, tokenizer) -> dict[int, int]:
 device = 'cuda'
 # dParallel_Dream_7B_Instruct
 # model = LLaDAModelLM.from_pretrained('Zigeng/dParallel-LLaDA-8B-instruct', trust_remote_code=True, torch_dtype=torch.bfloat16).to(device).eval()
-model = LLaDAModelLM.from_pretrained('GSAI-ML/LLaDA-8B-Instruct', trust_remote_code=True, torch_dtype=torch.bfloat16).to(device).eval()
-tokenizer = AutoTokenizer.from_pretrained('GSAI-ML/LLaDA-8B-Instruct', trust_remote_code=True)
+model = LLaDAModelLM.from_pretrained('Zigeng/dParallel-LLaDA-8B-instruct', trust_remote_code=True, torch_dtype=torch.bfloat16).to(device).eval()
+tokenizer = AutoTokenizer.from_pretrained('Zigeng/dParallel-LLaDA-8B-instruct', trust_remote_code=True)
 
-prompt = "What is the capital of France? Answer with 'The answer is '"
+prompt = "Weng earns $12 an hour for babysitting. Yesterday, she just did 50 minutes of babysitting. How much did she earn?"
 
 m = [{"role": "user", "content": prompt}, ]
 prompt = tokenizer.apply_chat_template(m, add_generation_prompt=True, tokenize=False)
@@ -47,7 +47,7 @@ answer_start_pos = input_ids.shape[1] + answer_start
 
 print("answer start pos", answer_start_pos)
 
-out, nfe_early, gap_data = generate_early(model, input_ids, steps=256, gen_length=256, block_length=32, analyze_gap=True, answer_start_pos=answer_start_pos, early_exit_thresholds={'early': 7.5, 'mid': 5.0, 'late': 2.5})
+out, nfe_early, gap_data = generate_early(model, input_ids, temperature=0., steps=256, gen_length=256, block_length=32, analyze_gap=True, answer_start_pos=answer_start_pos, early_exit_thresholds={'early': 7.5, 'mid': 5.0, 'late': 2.5})
 
 
 generated_text = tokenizer.decode(out[0, input_ids.shape[1]:], skip_special_tokens=True)
@@ -56,8 +56,8 @@ print(f"NFE: {nfe_early}")
 print(f"Early exit: {gap_data['exit_info']['early_exit_triggered']} at step {gap_data['exit_info']['exit_decision_step']}")
 
 # -- normal
-# out = generate_normal(model, input_ids, steps=256, gen_length=256, block_length=32, temperature=0., threshold=0.5,remasking='low_confidence')
+out = generate_normal(model, input_ids, steps=256, gen_length=256, block_length=32, temperature=0., threshold=0.5,remasking='low_confidence')
 
-# print("Response:",tokenizer.batch_decode(out[0][:, input_ids.shape[1]:], skip_special_tokens=True)[0])
-# print("NFE:",out[1])
+print("Response:",tokenizer.batch_decode(out[0][:, input_ids.shape[1]:], skip_special_tokens=True)[0])
+print("NFE:",out[1])
 # print(f"Early exit: {gap_data['exit_info']['early_exit_triggered']} at step {gap_data['exit_info']['exit_decision_step']}")
