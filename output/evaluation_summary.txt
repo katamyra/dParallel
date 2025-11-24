@@ -4,20 +4,19 @@ Results for: Baseline (gsm8k)
 ================================================================================
 
 Speed Metrics:
-  Total Time:           2077.02 seconds
-  Total Tokens:         324,382
-  Total NFE:            335,616
-  Throughput:           156.18 tokens/sec
+  Total Time:           7545.25 seconds
+  Total Tokens:         326,333
+  Total NFE:            337,664
+  Throughput:           43.25 tokens/sec
   Avg NFE per token:    1.03
-  Number of GPUs:       4
 
 Accuracy Metrics:
 
   Task: gsm8k
     exact_match,strict-match: 0.0000
     exact_match_stderr,strict-match: 0.0000
-    exact_match,flexible-extract: 0.7468
-    exact_match_stderr,flexible-extract: 0.0120
+    exact_match,flexible-extract: 0.7513
+    exact_match_stderr,flexible-extract: 0.0119
 ================================================================================
 
 
@@ -26,12 +25,11 @@ Results for: dParallel (gsm8k)
 ================================================================================
 
 Speed Metrics:
-  Total Time:           322.19 seconds
-  Total Tokens:         278,510
-  Total NFE:            39,531
-  Throughput:           864.44 tokens/sec
+  Total Time:           1023.76 seconds
+  Total Tokens:         278,262
+  Total NFE:            39,501
+  Throughput:           271.80 tokens/sec
   Avg NFE per token:    0.14
-  Number of GPUs:       4
 
 Accuracy Metrics:
 
@@ -48,9 +46,9 @@ Comparison: dParallel vs Baseline
 ================================================================================
 
 Speed Comparison:
-  Baseline throughput:   156.18 tokens/sec
-  dParallel throughput:  864.44 tokens/sec
-  Speedup:               5.53x
+  Baseline throughput:   43.25 tokens/sec
+  dParallel throughput:  271.80 tokens/sec
+  Speedup:               6.28x
 
   Baseline NFE/token:    1.03
   dParallel NFE/token:   0.14
@@ -68,13 +66,13 @@ Accuracy Comparison:
       dParallel: 0.0000
       Difference: +0.0000
     exact_match,flexible-extract:
-      Baseline:  0.7468
+      Baseline:  0.7513
       dParallel: 0.7582
-      Difference: +0.0114
+      Difference: +0.0068
     exact_match_stderr,flexible-extract:
-      Baseline:  0.0120
+      Baseline:  0.0119
       dParallel: 0.0118
-      Difference: -0.0002
+      Difference: -0.0001
 ================================================================================
 
 
@@ -83,12 +81,11 @@ Results for: Baseline (humaneval)
 ================================================================================
 
 Speed Metrics:
-  Total Time:           335.93 seconds
+  Total Time:           1030.73 seconds
   Total Tokens:         69,809
   Total NFE:            41,984
-  Throughput:           207.81 tokens/sec
+  Throughput:           67.73 tokens/sec
   Avg NFE per token:    0.60
-  Number of GPUs:       4
 
 Accuracy Metrics:
 
@@ -103,12 +100,11 @@ Results for: dParallel (humaneval)
 ================================================================================
 
 Speed Metrics:
-  Total Time:           113.23 seconds
+  Total Time:           184.13 seconds
   Total Tokens:         58,601
   Total NFE:            5,747
-  Throughput:           517.55 tokens/sec
+  Throughput:           318.25 tokens/sec
   Avg NFE per token:    0.10
-  Number of GPUs:       4
 
 Accuracy Metrics:
 
@@ -123,9 +119,9 @@ Comparison: dParallel vs Baseline
 ================================================================================
 
 Speed Comparison:
-  Baseline throughput:   207.81 tokens/sec
-  dParallel throughput:  517.55 tokens/sec
-  Speedup:               2.49x
+  Baseline throughput:   67.73 tokens/sec
+  dParallel throughput:  318.25 tokens/sec
+  Speedup:               4.70x
 
   Baseline NFE/token:    0.60
   dParallel NFE/token:   0.10
@@ -150,12 +146,11 @@ Results for: Baseline (mbpp)
 ================================================================================
 
 Speed Metrics:
-  Total Time:           1400.81 seconds
-  Total Tokens:         87,500
+  Total Time:           5132.09 seconds
+  Total Tokens:         87,481
   Total NFE:            128,000
-  Throughput:           62.46 tokens/sec
+  Throughput:           17.05 tokens/sec
   Avg NFE per token:    1.46
-  Number of GPUs:       4
 
 Accuracy Metrics:
 
@@ -170,12 +165,11 @@ Results for: dParallel (mbpp)
 ================================================================================
 
 Speed Metrics:
-  Total Time:           194.64 seconds
-  Total Tokens:         26,732
-  Total NFE:            11,812
-  Throughput:           137.34 tokens/sec
+  Total Time:           564.76 seconds
+  Total Tokens:         26,715
+  Total NFE:            11,797
+  Throughput:           47.30 tokens/sec
   Avg NFE per token:    0.44
-  Number of GPUs:       4
 
 Accuracy Metrics:
 
@@ -190,9 +184,9 @@ Comparison: dParallel vs Baseline
 ================================================================================
 
 Speed Comparison:
-  Baseline throughput:   62.46 tokens/sec
-  dParallel throughput:  137.34 tokens/sec
-  Speedup:               2.20x
+  Baseline throughput:   17.05 tokens/sec
+  dParallel throughput:  47.30 tokens/sec
+  Speedup:               2.78x
 
   Baseline NFE/token:    1.46
   dParallel NFE/token:   0.44

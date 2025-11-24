@@ -1,35 +1,0 @@
-The following values were not passed to `accelerate launch` and had defaults used instead:
-	`--num_processes` was set to a value of `2`
-		More than one GPU was found, enabling multi-GPU training.
-		If this was unintended please pass in `--num_processes=1`.
-	`--num_machines` was set to a value of `1`
-	`--mixed_precision` was set to a value of `'no'`
-	`--dynamo_backend` was set to a value of `'no'`
-To avoid this warning pass in values for each of the problematic parameters or run `accelerate config`.
-2025-10-31:00:09:54,378 INFO     [lm_eval.__main__:379] Selected Tasks: ['gsm8k']
-2025-10-31:00:09:54,381 INFO     [lm_eval.__main__:379] Selected Tasks: ['gsm8k']
-2025-10-31:00:09:54,430 INFO     [lm_eval.evaluator:169] Setting random seed to 0 | Setting numpy seed to 1234 | Setting torch manual seed to 1234 | Setting fewshot manual seed to 1234
-2025-10-31:00:09:54,430 INFO     [lm_eval.evaluator:169] Setting random seed to 0 | Setting numpy seed to 1234 | Setting torch manual seed to 1234 | Setting fewshot manual seed to 1234
-2025-10-31:00:09:54,430 INFO     [lm_eval.evaluator:206] Initializing llada_dist model, with arguments: {'model_path': 'GSAI-ML/LLaDA-8B-Instruct', 'gen_length': 256, 'steps': 256, 'block_length': 32, 'show_speed': True, 'task': 'gsm8k', 'save_dir': '/home/hice1/rbansal66/scratch/dParallel/output/baseline/gsm8k'}
-2025-10-31:00:09:54,430 INFO     [lm_eval.evaluator:206] Initializing llada_dist model, with arguments: {'model_path': 'GSAI-ML/LLaDA-8B-Instruct', 'gen_length': 256, 'steps': 256, 'block_length': 32, 'show_speed': True, 'task': 'gsm8k', 'save_dir': '/home/hice1/rbansal66/scratch/dParallel/output/baseline/gsm8k'}
-The argument `trust_remote_code` is to be used with Auto classes. It has no effect here and is ignored.
-The argument `trust_remote_code` is to be used with Auto classes. It has no effect here and is ignored.
-Loading checkpoint shards:   0%|          | 0/6 [00:00<?, ?it/s]Loading checkpoint shards:   0%|          | 0/6 [00:00<?, ?it/s]Loading checkpoint shards:  17%|█▋        | 1/6 [00:42<03:31, 42.25s/it]Loading checkpoint shards:  17%|█▋        | 1/6 [00:42<03:31, 42.25s/it]Loading checkpoint shards:  33%|███▎      | 2/6 [01:12<02:21, 35.44s/it]Loading checkpoint shards:  33%|███▎      | 2/6 [01:12<02:21, 35.47s/it]Loading checkpoint shards:  50%|█████     | 3/6 [01:40<01:35, 31.74s/it]Loading checkpoint shards:  50%|█████     | 3/6 [01:40<01:35, 31.76s/it]Loading checkpoint shards:  67%|██████▋   | 4/6 [02:12<01:03, 31.77s/it]Loading checkpoint shards:  67%|██████▋   | 4/6 [02:12<01:03, 31.78s/it]Loading checkpoint shards:  83%|████████▎ | 5/6 [02:42<00:31, 31.18s/it]Loading checkpoint shards:  83%|████████▎ | 5/6 [02:42<00:31, 31.18s/it]Loading checkpoint shards: 100%|██████████| 6/6 [03:17<00:00, 32.65s/it]Loading checkpoint shards: 100%|██████████| 6/6 [03:17<00:00, 32.65s/it]Loading checkpoint shards: 100%|██████████| 6/6 [03:17<00:00, 32.97s/it]
-Loading checkpoint shards: 100%|██████████| 6/6 [03:17<00:00, 32.97s/it]
-2025-10-31:00:13:22,325 WARNING  [lm_eval.evaluator:275] Overwriting default num_fewshot of gsm8k from 5 to 0
-2025-10-31:00:13:22,325 WARNING  [lm_eval.evaluator:275] Overwriting default num_fewshot of gsm8k from 5 to 0
-2025-10-31:00:13:22,326 INFO     [lm_eval.api.task:420] Building contexts for gsm8k on rank 1...
-2025-10-31:00:13:22,326 INFO     [lm_eval.api.task:420] Building contexts for gsm8k on rank 0...
-  0%|          | 0/659 [00:00<?, ?it/s]  0%|          | 0/660 [00:00<?, ?it/s] 24%|██▎       | 155/659 [00:00<00:00, 1545.96it/s] 24%|██▎       | 156/660 [00:00<00:00, 1552.40it/s] 51%|█████▏    | 338/659 [00:00<00:00, 1710.07it/s] 52%|█████▏    | 340/660 [00:00<00:00, 1715.85it/s] 79%|███████▉  | 521/659 [00:00<00:00, 1762.88it/s] 79%|███████▉  | 523/660 [00:00<00:00, 1766.23it/s]100%|██████████| 660/660 [00:00<00:00, 1755.31it/s]
-100%|██████████| 659/659 [00:00<00:00, 1750.77it/s]
-2025-10-31:00:13:25,299 INFO     [lm_eval.evaluator:517] Running generate_until requests
-2025-10-31:00:13:25,299 INFO     [lm_eval.evaluator:517] Running generate_until requests
-Generating...:   0%|          | 0/660 [00:00<?, ?it/s]Generating...:   0%|          | 0/660 [00:00<?, ?it/s]/home/hice1/rbansal66/.conda/envs/dparallel/lib/python3.10/site-packages/torch/backends/cuda/__init__.py:131: UserWarning: Please use the new API settings to control TF32 behavior, such as torch.backends.cudnn.conv.fp32_precision = 'tf32' or torch.backends.cuda.matmul.fp32_precision = 'ieee'. Old settings, e.g, torch.backends.cuda.matmul.allow_tf32 = True, torch.backends.cudnn.allow_tf32 = True, allowTF32CuDNN() and allowTF32CuBLAS() will be deprecated after Pytorch 2.9. Please see https://pytorch.org/docs/main/notes/cuda.html#tensorfloat-32-tf32-on-ampere-and-later-devices (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:80.)
-  return torch._C._get_cublas_allow_tf32()
-/home/hice1/rbansal66/.conda/envs/dparallel/lib/python3.10/site-packages/torch/backends/cuda/__init__.py:131: UserWarning: Please use the new API settings to control TF32 behavior, such as torch.backends.cudnn.conv.fp32_precision = 'tf32' or torch.backends.cuda.matmul.fp32_precision = 'ieee'. Old settings, e.g, torch.backends.cuda.matmul.allow_tf32 = True, torch.backends.cudnn.allow_tf32 = True, allowTF32CuDNN() and allowTF32CuBLAS() will be deprecated after Pytorch 2.9. Please see https://pytorch.org/docs/main/notes/cuda.html#tensorfloat-32-tf32-on-ampere-and-later-devices (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:80.)
-  return torch._C._get_cublas_allow_tf32()
-/home/hice1/rbansal66/.conda/envs/dparallel/lib/python3.10/site-packages/torch/_inductor/compile_fx.py:2772: UserWarning: Tesla V100-PCIE-32GB does not support bfloat16 compilation natively, skipping
-  warnings.warn(
-/home/hice1/rbansal66/.conda/envs/dparallel/lib/python3.10/site-packages/torch/_inductor/compile_fx.py:2772: UserWarning: Tesla V100-PCIE-32GB does not support bfloat16 compilation natively, skipping
-  warnings.warn(
-Generating...:   0%|          | 1/660 [02:37<28:47:46, 157.31s/it]Generating...:   0%|          | 1/660 [03:46<41:24:57, 226.25s/it]Generating...:   0%|          | 2/660 [05:48<32:20:38, 176.96s/it]Generating...:   0%|          | 2/660 [07:22<40:17:21, 220.43s/it]Generating...:   0%|          | 3/660 [08:59<33:29:43, 183.54s/it]Generating...:   0%|          | 3/660 [11:31<42:34:36, 233.30s/it]Generating...:   1%|          | 4/660 [12:11<34:03:10, 186.88s/it]Generating...:   1%|          | 4/660 [15:10<41:31:46, 227.91s/it]Generating...:   1%|          | 5/660 [15:22<34:17:54, 188.51s/it]slurmstepd: error: *** JOB 3478915 ON atl1-1-01-002-8-0 CANCELLED AT 2025-10-31T00:31:08 ***

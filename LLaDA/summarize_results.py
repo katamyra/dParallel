@@ -146,7 +146,7 @@ def main():
     if len(sys.argv) > 1:
         output_dir = Path(sys.argv[1])
     else:
-        output_dir = Path("/home/hice1/rbansal66/scratch/dParallel/output")
+        output_dir = Path("/home/hice1/jzhang3463/scratch/CS4644-DeepLearning/dParallel/output")
     
     if not output_dir.exists():
         print(f"Error: Output directory {output_dir} does not exist")

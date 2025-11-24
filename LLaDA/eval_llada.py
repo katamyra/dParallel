@@ -342,7 +342,7 @@ class LLaDAEvalHarness(LM):
 
             if self.is_instruct and 'task_id' in req.doc and str(req.doc['task_id']).lower().startswith('humaneval'):
                 if self.show_speed:
-                    num_tokens += (generated_answer != 126081).sum()
+                    num_tokens += int((generated_answer != 126081).sum().item())
                     num_nfe += nfe
                 generated_answer = self.tokenizer.decode(generated_answer[0][input_ids.shape[1]:], skip_special_tokens=True)
             else:
@@ -354,7 +354,7 @@ class LLaDAEvalHarness(LM):
                 # remove special tokens
                 generated_answer_ids = torch.tensor(self.tokenizer(generated_answer)["input_ids"])
                 if self.show_speed:
-                    num_tokens += (generated_answer_ids != 126081).sum()
+                    num_tokens += int((generated_answer_ids != 126081).sum().item())
                     num_nfe += nfe
                 generated_answer = self.tokenizer.decode(generated_answer_ids, skip_special_tokens=True)
             output.append(generated_answer)
