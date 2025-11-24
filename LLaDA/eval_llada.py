@@ -33,7 +33,7 @@ from lm_eval.api.registry import register_model
 from tqdm import tqdm
 import os
 from transformers import AutoTokenizer, AutoModel, AutoConfig
-from generate_plain import generate, generate_with_prefix_cache, generate_with_dual_cache
+from generate import generate, generate_prophet
 from model.modeling_llada import LLaDAModelLM
 import json
 import time
@@ -51,6 +51,27 @@ def set_seed(seed):
 
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
+
+def _parse_constraints(text: str, tokenizer) -> dict:
+    """Parse constraint string like '120:The|121:answer|122:is' into position->token_id dict."""
+    constraints = {}
+    if text is None or text.strip() == "":
+        return constraints
+    for part in text.split('|'):
+        if ':' not in part:
+            continue
+        pos_str, word = part.split(':', 1)
+        try:
+            pos = int(pos_str.strip())
+        except ValueError:
+            continue
+        word = word.strip()
+        # Prepend space for tokenization consistency
+        ids = tokenizer.encode(" " + word, add_special_tokens=False)
+        for i, tid in enumerate(ids):
+            constraints[pos + i] = tid
+    return constraints
 
 
 @register_model("llada_dist")
@@ -74,6 +95,10 @@ class LLaDAEvalHarness(LM):
         show_speed=False,
         dual_cache=False,
         task="null",
+        use_prophet=False,
+        constraints_text=None,
+        early_exit_thresholds=None,
+        analyze_gap=False,
         **kwargs,
     ):
         '''
@@ -141,6 +166,10 @@ class LLaDAEvalHarness(LM):
         self.dual_cache = dual_cache
         self.task = task
         self.cfg = 0
+        self.use_prophet = use_prophet
+        self.constraints_text = constraints_text
+        self.early_exit_thresholds = early_exit_thresholds if early_exit_thresholds else {'early': 9.0, 'mid': 7.0, 'late': 5.0}
+        self.analyze_gap = analyze_gap
     @property
     def rank(self):
         return self._rank
@@ -329,16 +358,45 @@ class LLaDAEvalHarness(LM):
         
             stop_tokens = req.args[1]['until']
             input_ids = torch.tensor(input_ids).to(self.device).unsqueeze(0)
-            if self.use_cache:
-                if self.dual_cache:
-                    generated_answer, nfe = generate_with_dual_cache(self.model, input_ids, steps=self.steps, gen_length=self.gen_length, block_length=self.block_length, 
-                                        temperature=0, remasking=self.remasking, mask_id=self.mask_id, threshold=self.threshold)
+            
+            # Choose generation method based on use_prophet flag
+            if self.use_prophet:
+                # Calculate answer_start_pos from constraints
+                constraints = _parse_constraints(self.constraints_text, self.tokenizer)
+                answer_start = max(constraints.keys()) + 2 if constraints else 0
+                answer_start_pos = input_ids.shape[1] + answer_start
+                
+                # Call generate_prophet with early exit analysis
+                result = generate_prophet(
+                    self.model, input_ids, 
+                    steps=self.steps, 
+                    gen_length=self.gen_length, 
+                    block_length=self.block_length,
+                    temperature=0, 
+                    remasking=self.remasking, 
+                    mask_id=self.mask_id, 
+                    threshold=self.threshold,
+                    analyze_gap=self.analyze_gap,
+                    answer_start_pos=answer_start_pos,
+                    early_exit_thresholds=self.early_exit_thresholds
+                )
+                
+                if self.analyze_gap:
+                    generated_answer, nfe, gap_data = result
                 else:
-                    generated_answer, nfe = generate_with_prefix_cache(self.model, input_ids, steps=self.steps, gen_length=self.gen_length, block_length=self.block_length, 
-                                        temperature=0, remasking=self.remasking, mask_id=self.mask_id, threshold=self.threshold)
+                    generated_answer, nfe = result
             else:
-                generated_answer, nfe = generate(self.model, input_ids, steps=self.steps, gen_length=self.gen_length, block_length=self.block_length, 
-                                        temperature=0, remasking=self.remasking, mask_id=self.mask_id, threshold=self.threshold)
+                # Call standard generate method
+                generated_answer, nfe = generate(
+                    self.model, input_ids, 
+                    steps=self.steps, 
+                    gen_length=self.gen_length, 
+                    block_length=self.block_length,
+                    temperature=0, 
+                    remasking=self.remasking, 
+                    mask_id=self.mask_id, 
+                    threshold=self.threshold
+                )
 
             if self.is_instruct and 'task_id' in req.doc and str(req.doc['task_id']).lower().startswith('humaneval'):
                 if self.show_speed:

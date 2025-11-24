@@ -1,0 +1,8 @@
+{
+  "total_time_seconds": 797.232421875,
+  "total_tokens": 157275,
+  "total_nfe": 34739,
+  "tokens_per_second": 197.27622169468106,
+  "avg_nfe_per_token": 0.22088062311238277,
+  "num_ranks": 2
+}
