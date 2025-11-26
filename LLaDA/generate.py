@@ -130,7 +130,7 @@ def get_transfer_index_entropy(logits, temperature, remasking, mask_index, x, nu
 
 
 def should_early_exit(current_step, max_steps, answer_gap, thresholds=None):
-    """Phase-aware early exit strategy."""
+    """Original phase-aware early exit strategy using piecewise thresholds."""
     if answer_gap is None:
         return False
     
@@ -226,9 +226,32 @@ def generate_prophet(
     threshold=None,
     analyze_gap=False,
     answer_start_pos=None,
-    early_exit_thresholds=None
+    early_exit_thresholds=None,
+    # Dynamic thresholding options (progress-based)
+    dynamic_threshold=False,
+    dyn_tau_min=None,
+    dyn_tau_max=None,
+    dyn_alpha=1.0,
+    # EMA / z-score based early-exit
+    ema_threshold=False,
+    ema_k=2.0,
+    ema_min_progress=0.3,
+    # Optional logging of gap schedule for offline calibration
+    log_gap_trace=False,
 ):
-    '''LLaDA generation with Prophet early exit mechanism based on logits gap.'''
+    '''LLaDA generation with Prophet early exit mechanism based on logits gap.
+    
+    Early-exit modes:
+      - Default (no dynamic_threshold / ema_threshold): piecewise thresholds
+        via should_early_exit(..., early_exit_thresholds).
+      - dynamic_threshold=True: progress-based schedule
+            tau(progress) = tau_min + (tau_max - tau_min) * (1 - progress) ** alpha
+        where progress = current_step / max_steps.
+      - ema_threshold=True: per-instance adaptive threshold using a z-score
+        criterion:
+            exit if progress >= ema_min_progress and
+                    gap_t >= mean_gap_t + ema_k * std_gap_t
+    '''
     
     # Initialize
     early_exit_triggered = False
@@ -244,6 +267,14 @@ def generate_prophet(
     
     global_step = 0
     max_steps = steps
+
+    # State for EMA / z-score thresholding
+    gap_ema = None
+    sq_ema = None
+    ema_beta = 0.9
+    ema_count = 0
+    # Optional trace of (step, progress, avg_gap) for calibration
+    gap_trace = [] if (analyze_gap and log_gap_trace) else None
     
     for num_block in range(num_blocks):
         block_start = prompt.shape[1] + num_block * block_length
@@ -280,8 +311,49 @@ def generate_prophet(
                 # Check early exit condition
                 if answer_gaps and not early_exit_triggered:
                     avg_answer_gap = sum(answer_gaps) / len(answer_gaps)
-                    
-                    if should_early_exit(global_step, max_steps, avg_answer_gap, early_exit_thresholds):
+                    progress = global_step / max_steps
+
+                    # Optionally record trace for offline calibration
+                    if gap_trace is not None:
+                        gap_trace.append(
+                            {
+                                "step": int(global_step),
+                                "progress": float(progress),
+                                "avg_gap": float(avg_answer_gap),
+                            }
+                        )
+
+                    # Decide whether to early exit
+                    exit_now = False
+
+                    if ema_threshold:
+                        # Update running mean / variance of answer gap
+                        if gap_ema is None:
+                            gap_ema = avg_answer_gap
+                            sq_ema = avg_answer_gap * avg_answer_gap
+                            ema_count = 1
+                        else:
+                            gap_ema = ema_beta * gap_ema + (1.0 - ema_beta) * avg_answer_gap
+                            sq_ema = ema_beta * sq_ema + (1.0 - ema_beta) * (avg_answer_gap * avg_answer_gap)
+                            ema_count += 1
+
+                        if ema_count >= 2 and progress >= ema_min_progress:
+                            var = max(sq_ema - gap_ema * gap_ema, 1e-6)
+                            std = var ** 0.5
+                            z = (avg_answer_gap - gap_ema) / (std + 1e-6)
+                            if z >= ema_k:
+                                exit_now = True
+                    elif dynamic_threshold:
+                        # Derive tau_max / tau_min if not provided explicitly
+                        tau_max = dyn_tau_max if dyn_tau_max is not None else (early_exit_thresholds or {}).get('early', 7.5)
+                        tau_min = dyn_tau_min if dyn_tau_min is not None else (early_exit_thresholds or {}).get('late', 2.5)
+                        # Progress-based threshold schedule
+                        tau = tau_min + (tau_max - tau_min) * (1.0 - progress) ** dyn_alpha
+                        exit_now = avg_answer_gap >= tau
+                    else:
+                        exit_now = should_early_exit(global_step, max_steps, avg_answer_gap, early_exit_thresholds)
+
+                    if exit_now:
                         print(f"Early exit at step {global_step}/{max_steps} with gap={avg_answer_gap:.3f}")
                         exit_decision_step = global_step
                         early_exit_triggered = True
@@ -325,6 +397,9 @@ def generate_prophet(
                 'actual_steps': exit_decision_step if early_exit_triggered else max_steps
             }
         }
+        # Optionally include full gap trace for offline calibration
+        if gap_trace is not None:
+            gap_data['gap_trace'] = gap_trace
         return x, global_step, gap_data
     
     return x, global_step

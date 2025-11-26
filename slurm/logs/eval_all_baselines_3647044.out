@@ -1,0 +1,42 @@
+---------------------------------------
+Begin Slurm Prolog: Nov-25-2025 03:49:27
+Job ID:    3647044
+User ID:   rbansal66
+Account:   coc
+Job name:  eval_all_baselines_%j
+Partition: ice-gpu
+QOS:       coc-ice
+---------------------------------------
+Tue Nov 25 03:49:27 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA H100 80GB HBM3          On  |   00000000:90:00.0 Off |                    0 |
+| N/A   30C    P0             78W /  700W |       0MiB /  81559MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+save_path: /home/hice1/rbansal66/scratch/dParallel/output/baseline/minerva_math/rank_0.jsonl
+---------------------------------------
+Begin Slurm Epilog: Nov-25-2025 07:49:52
+Job ID:        3647044
+User ID:       rbansal66
+Account:       coc
+Job name:      eval_all_baselines_%j
+Resources:     cpu=4,gres/gpu:h100=1,mem=16G,node=1
+Rsrc Used:     cput=16:01:36,vmem=0,walltime=04:00:24,mem=16320676K,energy_used=0
+Partition:     ice-gpu
+QOS:           coc-ice
+Nodes:         atl1-1-03-012-23-0
+---------------------------------------

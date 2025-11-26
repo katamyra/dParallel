@@ -18,4 +18,5 @@ module load anaconda3
 conda activate dparallel
 cd dParallel/LLaDA
 
+chmod +x eval.sh
 bash ./eval.sh
