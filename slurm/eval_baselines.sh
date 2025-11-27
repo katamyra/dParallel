@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=eval_all_baselines_%j
-#SBATCH --time=4:00:00
+#SBATCH --time=1:00:00
 #SBATCH --qos=coc-ice
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
