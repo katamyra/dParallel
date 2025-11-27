@@ -77,6 +77,295 @@ Accuracy Comparison:
 
 
 ================================================================================
+Results for: Baseline (minerva_math)
+================================================================================
+
+Speed Metrics:
+  Total Time:           12287.28 seconds
+  Total Tokens:         1,245,413
+  Total NFE:            1,282,048
+  Throughput:           101.36 tokens/sec
+  Avg NFE per token:    1.03
+  Number of GPUs:       4
+
+Accuracy Metrics:
+
+  Task: minerva_math
+    math_verify,none: 0.3320
+    math_verify_stderr,none: 0.0062
+    exact_match,none: 0.0844
+    exact_match_stderr,none: 0.0039
+
+  Task: minerva_math_algebra
+    exact_match,none: 0.1120
+    exact_match_stderr,none: 0.0092
+    math_verify,none: 0.4760
+    math_verify_stderr,none: 0.0145
+
+  Task: minerva_math_counting_and_prob
+    exact_match,none: 0.0633
+    exact_match_stderr,none: 0.0112
+    math_verify,none: 0.3249
+    math_verify_stderr,none: 0.0215
+
+  Task: minerva_math_geometry
+    exact_match,none: 0.0668
+    exact_match_stderr,none: 0.0114
+    math_verify,none: 0.2547
+    math_verify_stderr,none: 0.0199
+
+  Task: minerva_math_intermediate_algebra
+    exact_match,none: 0.0476
+    exact_match_stderr,none: 0.0071
+    math_verify,none: 0.1274
+    math_verify_stderr,none: 0.0111
+
+  Task: minerva_math_num_theory
+    exact_match,none: 0.0815
+    exact_match_stderr,none: 0.0118
+    math_verify,none: 0.2889
+    math_verify_stderr,none: 0.0195
+
+  Task: minerva_math_prealgebra
+    exact_match,none: 0.1206
+    exact_match_stderr,none: 0.0110
+    math_verify,none: 0.5557
+    math_verify_stderr,none: 0.0168
+
+  Task: minerva_math_precalc
+    exact_match,none: 0.0641
+    exact_match_stderr,none: 0.0105
+    math_verify,none: 0.1172
+    math_verify_stderr,none: 0.0138
+================================================================================
+
+
+================================================================================
+Results for: dParallel (minerva_math)
+================================================================================
+
+Speed Metrics:
+  Total Time:           4820.37 seconds
+  Total Tokens:         958,030
+  Total NFE:            229,583
+  Throughput:           198.75 tokens/sec
+  Avg NFE per token:    0.24
+  Number of GPUs:       2
+
+Accuracy Metrics:
+
+  Task: minerva_math
+    math_verify,none: 0.3106
+    math_verify_stderr,none: 0.0061
+    exact_match,none: 0.0226
+    exact_match_stderr,none: 0.0021
+
+  Task: minerva_math_algebra
+    exact_match,none: 0.0379
+    exact_match_stderr,none: 0.0055
+    math_verify,none: 0.4608
+    math_verify_stderr,none: 0.0145
+
+  Task: minerva_math_counting_and_prob
+    exact_match,none: 0.0148
+    exact_match_stderr,none: 0.0055
+    math_verify,none: 0.2932
+    math_verify_stderr,none: 0.0209
+
+  Task: minerva_math_geometry
+    exact_match,none: 0.0188
+    exact_match_stderr,none: 0.0062
+    math_verify,none: 0.1962
+    math_verify_stderr,none: 0.0182
+
+  Task: minerva_math_intermediate_algebra
+    exact_match,none: 0.0133
+    exact_match_stderr,none: 0.0038
+    math_verify,none: 0.1107
+    math_verify_stderr,none: 0.0104
+
+  Task: minerva_math_num_theory
+    exact_match,none: 0.0167
+    exact_match_stderr,none: 0.0055
+    math_verify,none: 0.2870
+    math_verify_stderr,none: 0.0195
+
+  Task: minerva_math_prealgebra
+    exact_match,none: 0.0287
+    exact_match_stderr,none: 0.0057
+    math_verify,none: 0.5258
+    math_verify_stderr,none: 0.0169
+
+  Task: minerva_math_precalc
+    exact_match,none: 0.0110
+    exact_match_stderr,none: 0.0045
+    math_verify,none: 0.1099
+    math_verify_stderr,none: 0.0134
+================================================================================
+
+
+================================================================================
+Comparison: dParallel vs Baseline
+================================================================================
+
+Speed Comparison:
+  Baseline throughput:   101.36 tokens/sec
+  dParallel throughput:  198.75 tokens/sec
+  Speedup:               1.96x
+
+  Baseline NFE/token:    1.03
+  dParallel NFE/token:   0.24
+  NFE reduction:         76.7%
+
+Accuracy Comparison:
+
+  Task: minerva_math
+    math_verify,none:
+      Baseline:  0.3320
+      dParallel: 0.3106
+      Difference: -0.0214
+    math_verify_stderr,none:
+      Baseline:  0.0062
+      dParallel: 0.0061
+      Difference: -0.0001
+    exact_match,none:
+      Baseline:  0.0844
+      dParallel: 0.0226
+      Difference: -0.0618
+    exact_match_stderr,none:
+      Baseline:  0.0039
+      dParallel: 0.0021
+      Difference: -0.0018
+
+  Task: minerva_math_algebra
+    exact_match,none:
+      Baseline:  0.1120
+      dParallel: 0.0379
+      Difference: -0.0741
+    exact_match_stderr,none:
+      Baseline:  0.0092
+      dParallel: 0.0055
+      Difference: -0.0036
+    math_verify,none:
+      Baseline:  0.4760
+      dParallel: 0.4608
+      Difference: -0.0152
+    math_verify_stderr,none:
+      Baseline:  0.0145
+      dParallel: 0.0145
+      Difference: -0.0000
+
+  Task: minerva_math_counting_and_prob
+    exact_match,none:
+      Baseline:  0.0633
+      dParallel: 0.0148
+      Difference: -0.0485
+    exact_match_stderr,none:
+      Baseline:  0.0112
+      dParallel: 0.0055
+      Difference: -0.0056
+    math_verify,none:
+      Baseline:  0.3249
+      dParallel: 0.2932
+      Difference: -0.0316
+    math_verify_stderr,none:
+      Baseline:  0.0215
+      dParallel: 0.0209
+      Difference: -0.0006
+
+  Task: minerva_math_geometry
+    exact_match,none:
+      Baseline:  0.0668
+      dParallel: 0.0188
+      Difference: -0.0480
+    exact_match_stderr,none:
+      Baseline:  0.0114
+      dParallel: 0.0062
+      Difference: -0.0052
+    math_verify,none:
+      Baseline:  0.2547
+      dParallel: 0.1962
+      Difference: -0.0585
+    math_verify_stderr,none:
+      Baseline:  0.0199
+      dParallel: 0.0182
+      Difference: -0.0018
+
+  Task: minerva_math_intermediate_algebra
+    exact_match,none:
+      Baseline:  0.0476
+      dParallel: 0.0133
+      Difference: -0.0343
+    exact_match_stderr,none:
+      Baseline:  0.0071
+      dParallel: 0.0038
+      Difference: -0.0033
+    math_verify,none:
+      Baseline:  0.1274
+      dParallel: 0.1107
+      Difference: -0.0166
+    math_verify_stderr,none:
+      Baseline:  0.0111
+      dParallel: 0.0104
+      Difference: -0.0007
+
+  Task: minerva_math_num_theory
+    exact_match,none:
+      Baseline:  0.0815
+      dParallel: 0.0167
+      Difference: -0.0648
+    exact_match_stderr,none:
+      Baseline:  0.0118
+      dParallel: 0.0055
+      Difference: -0.0063
+    math_verify,none:
+      Baseline:  0.2889
+      dParallel: 0.2870
+      Difference: -0.0019
+    math_verify_stderr,none:
+      Baseline:  0.0195
+      dParallel: 0.0195
+      Difference: -0.0000
+
+  Task: minerva_math_prealgebra
+    exact_match,none:
+      Baseline:  0.1206
+      dParallel: 0.0287
+      Difference: -0.0918
+    exact_match_stderr,none:
+      Baseline:  0.0110
+      dParallel: 0.0057
+      Difference: -0.0054
+    math_verify,none:
+      Baseline:  0.5557
+      dParallel: 0.5258
+      Difference: -0.0299
+    math_verify_stderr,none:
+      Baseline:  0.0168
+      dParallel: 0.0169
+      Difference: +0.0001
+
+  Task: minerva_math_precalc
+    exact_match,none:
+      Baseline:  0.0641
+      dParallel: 0.0110
+      Difference: -0.0531
+    exact_match_stderr,none:
+      Baseline:  0.0105
+      dParallel: 0.0045
+      Difference: -0.0060
+    math_verify,none:
+      Baseline:  0.1172
+      dParallel: 0.1099
+      Difference: -0.0073
+    math_verify_stderr,none:
+      Baseline:  0.0138
+      dParallel: 0.0134
+      Difference: -0.0004
+================================================================================
+
+
+================================================================================
 Results for: Baseline (humaneval)
 ================================================================================
 
